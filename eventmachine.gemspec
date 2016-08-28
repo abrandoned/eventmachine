@@ -13,6 +13,7 @@ Gem::Specification.new do |s|
   s.test_files = `git ls-files tests examples`.split
 
   s.add_development_dependency 'test-unit', '~> 2.0'
+  s.add_development_dependency 'rake'
 
   s.summary = 'Ruby/EventMachine library (only the pure_ruby eventmachine)'
   s.description = <<-EOT
