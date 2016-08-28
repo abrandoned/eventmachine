@@ -543,15 +543,10 @@ module EventMachine
     def eventable_read
       @last_activity = Reactor.instance.current_loop_time
       begin
-        if io.respond_to?(:read_nonblock)
           10.times {
             data = io.read_nonblock(4096)
             EventMachine::event_callback uuid, ConnectionData, data
           }
-        else
-          data = io.sysread(4096)
-          EventMachine::event_callback uuid, ConnectionData, data
-        end
       rescue Errno::EAGAIN, Errno::EWOULDBLOCK
         # no-op
       rescue Errno::ECONNRESET, Errno::ECONNREFUSED, EOFError
@@ -579,11 +574,7 @@ module EventMachine
       while data = @outbound_q.shift do
         begin
           data = data.to_s
-          w = if io.respond_to?(:write_nonblock)
-                io.write_nonblock data
-              else
-                io.syswrite data
-              end
+          w = io.write_nonblock data
 
           if w < data.length
             @outbound_q.unshift data[w..-1]
@@ -687,8 +678,6 @@ module EventMachine
         super
       end
     end
-
-
 
   end
 end
@@ -990,15 +979,11 @@ module EventMachine
     # performance.
     def eventable_read
       begin
-        if io.respond_to?(:recvfrom_nonblock)
-          40.times {
-            data,@return_address = io.recvfrom_nonblock(16384)
-            EventMachine::event_callback uuid, ConnectionData, data
-            @return_address = nil
-          }
-        else
-          raise "unimplemented datagram-read operation on this Ruby"
-        end
+        40.times {
+          data,@return_address = io.recvfrom_nonblock(16384)
+          EventMachine::event_callback uuid, ConnectionData, data
+          @return_address = nil
+        }
       rescue Errno::EAGAIN
         # no-op
       rescue Errno::ECONNRESET, EOFError
@@ -1015,8 +1000,3 @@ module EventMachine
 
   end
 end
-
-# load base EM api on top, now that we have the underlying pure ruby
-# implementation defined
-require 'eventmachine'
-

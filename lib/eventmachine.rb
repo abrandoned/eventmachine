@@ -1,17 +1,4 @@
-if defined?(EventMachine.library_type) and EventMachine.library_type == :pure_ruby
-  # assume 'em/pure_ruby' was loaded already
-elsif RUBY_PLATFORM =~ /java/
-  require 'java'
-  require 'jeventmachine'
-else
-  begin
-    require 'rubyeventmachine'
-  rescue LoadError
-    warn "Unable to load the EventMachine C extension; To use the pure-ruby reactor, require 'em/pure_ruby'"
-    raise
-  end
-end
-
+require 'em/pure_ruby'
 require 'em/version'
 require 'em/pool'
 require 'em/deferrable'
@@ -70,6 +57,10 @@ require 'resolv'
 # * {EventMachine.enable_proxy}
 # * {EventMachine.disable_proxy}
 module EventMachine
+  def self.kqueue?
+    false
+  end
+
   class << self
     # Exposed to allow joining on the thread, when run in a multithreaded
     # environment. Performing other actions on the thread has undefined
@@ -535,16 +526,6 @@ module EventMachine
     s
   end
 
-  # Attach to an existing socket's file descriptor. The socket may have been
-  # started with {EventMachine.start_server}.
-  def self.attach_server sock, handler=nil, *args, &block
-    klass = klass_from_handler(Connection, handler, *args)
-    sd = sock.respond_to?(:fileno) ? sock.fileno : sock
-    s = attach_sd(sd)
-    @acceptors[s] = [klass,args,block,sock]
-    s
-  end
-
   # Stop a TCP server socket that was started with {EventMachine.start_server}.
   # @see EventMachine.start_server
   def self.stop_server signature
@@ -685,93 +666,6 @@ module EventMachine
     block_given? and yield c
     c
   end
-
-  # {EventMachine.watch} registers a given file descriptor or IO object with the eventloop. The
-  # file descriptor will not be modified (it will remain blocking or non-blocking).
-  #
-  # The eventloop can be used to process readable and writable events on the file descriptor, using
-  # {EventMachine::Connection#notify_readable=} and {EventMachine::Connection#notify_writable=}
-  #
-  # {EventMachine::Connection#notify_readable?} and {EventMachine::Connection#notify_writable?} can be used
-  # to check what events are enabled on the connection.
-  #
-  # To detach the file descriptor, use {EventMachine::Connection#detach}
-  #
-  # @example
-  #
-  #  module SimpleHttpClient
-  #    def notify_readable
-  #      header = @io.readline
-  #
-  #      if header == "\r\n"
-  #        # detach returns the file descriptor number (fd == @io.fileno)
-  #        fd = detach
-  #      end
-  #    rescue EOFError
-  #      detach
-  #    end
-  #
-  #    def unbind
-  #      EM.next_tick do
-  #        # socket is detached from the eventloop, but still open
-  #        data = @io.read
-  #      end
-  #    end
-  #  end
-  #
-  #  EventMachine.run {
-  #    sock = TCPSocket.new('site.com', 80)
-  #    sock.write("GET / HTTP/1.0\r\n\r\n")
-  #    conn = EventMachine.watch(sock, SimpleHttpClient)
-  #    conn.notify_readable = true
-  #  }
-  #
-  # @author Riham Aldakkak (eSpace Technologies)
-  def EventMachine::watch io, handler=nil, *args, &blk
-    attach_io io, true, handler, *args, &blk
-  end
-
-  # Attaches an IO object or file descriptor to the eventloop as a regular connection.
-  # The file descriptor will be set as non-blocking, and EventMachine will process
-  # receive_data and send_data events on it as it would for any other connection.
-  #
-  # To watch a fd instead, use {EventMachine.watch}, which will not alter the state of the socket
-  # and fire notify_readable and notify_writable events instead.
-  def EventMachine::attach io, handler=nil, *args, &blk
-    attach_io io, false, handler, *args, &blk
-  end
-
-  # @private
-  def EventMachine::attach_io io, watch_mode, handler=nil, *args
-    klass = klass_from_handler(Connection, handler, *args)
-
-    if !watch_mode and klass.public_instance_methods.any?{|m| [:notify_readable, :notify_writable].include? m.to_sym }
-      raise ArgumentError, "notify_readable/writable with EM.attach is not supported. Use EM.watch(io){ |c| c.notify_readable = true }"
-    end
-
-    if io.respond_to?(:fileno)
-      # getDescriptorByFileno deprecated in JRuby 1.7.x, removed in JRuby 9000
-      if defined?(JRuby) && JRuby.runtime.respond_to?(:getDescriptorByFileno)
-        fd = JRuby.runtime.getDescriptorByFileno(io.fileno).getChannel
-      else
-        fd = io.fileno
-      end
-    else
-      fd = io
-    end
-
-    s = attach_fd fd, watch_mode
-    c = klass.new s, *args
-
-    c.instance_variable_set(:@io, io)
-    c.instance_variable_set(:@watch_mode, watch_mode)
-    c.instance_variable_set(:@fd, fd)
-
-    @conns[s] = c
-    block_given? and yield c
-    c
-  end
-
 
   # Connect to a given host/port and re-use the provided {EventMachine::Connection} instance.
   # Consider also {EventMachine::Connection#reconnect}.
@@ -1446,7 +1340,7 @@ module EventMachine
   #
   # @return [Integer] Heartbeat interval, in seconds
   def self.heartbeat_interval
-    EM::get_heartbeat_interval
+    # not implemented
   end
 
   # Set the heartbeat interval. This is how often EventMachine will check for dead connections
@@ -1455,7 +1349,7 @@ module EventMachine
   #
   # @param [Integer] time Heartbeat interval, in seconds
   def self.heartbeat_interval=(time)
-    EM::set_heartbeat_interval time.to_f
+    # not implemented
   end
 
   # @private

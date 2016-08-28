@@ -3,6 +3,8 @@
 
 ## What is EventMachine ##
 
+THIS IS ONLY THE PURE_RUBY SECTION OF EVENTMACHINE, for the REAL eventmachine go to the officially maintained repo
+
 EventMachine is an event-driven I/O and lightweight concurrency library for Ruby.
 It provides event-driven I/O using the [Reactor pattern](http://en.wikipedia.org/wiki/Reactor_pattern),
 much like [JBoss Netty](http://www.jboss.org/netty), [Apache MINA](http://mina.apache.org/),
