@@ -57,6 +57,10 @@ require 'resolv'
 # * {EventMachine.enable_proxy}
 # * {EventMachine.disable_proxy}
 module EventMachine
+  def self.epoll?
+    false
+  end
+
   def self.kqueue?
     false
   end
